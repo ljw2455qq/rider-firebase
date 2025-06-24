@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>GPS 오버레이</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    html, body { margin: 0; background: transparent; }
+    #map { height: 100vh; }
+    .leaflet-marker-icon.circle-icon {
+      border-radius: 50%;
+      border: 2px solid white;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+  apiKey: "AIzaSyA5hMmN9QFgdFtaA5gicS_pj-blu_jJdvE",
+  authDomain: "rider-bf48b.firebaseapp.com",
+  databaseURL: "https://rider-bf48b-default-rtdb.firebaseio.com",
+  projectId: "rider-bf48b",
+  storageBucket: "rider-bf48b.firebasestorage.app",
+  messagingSenderId: "1026929653322",
+  appId: "1:1026929653322:web:b90541cccba5b4186198b3",
+  measurementId: "G-Z0H55KJ1W7"
+};
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const map = L.map('map').setView([35.1291, 126.8540], 17);
+    const icon = L.icon({
+      iconUrl: 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+      iconSize: [48, 48],
+      iconAnchor: [24, 24],
+      className: 'circle-icon'
+    });
+    const marker = L.marker([0, 0], { icon }).addTo(map);
+
+    db.ref('location').on('value', snapshot => {
+      const data = snapshot.val();
+      if (data) {
+        marker.setLatLng([data.lat, data.lng]);
+        map.setView([data.lat, data.lng]);
+      }
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    }).addTo(map);
+  </script>
+</body>
+</html>
