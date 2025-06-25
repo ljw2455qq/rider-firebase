@@ -37,6 +37,8 @@
             font-size: 16px;
             pointer-events: none; /* 클릭 이벤트를 무시하여 아래 레이어 클릭 가능 */
         }
+        /* Leaflet 마커 아이콘에 적용될 CSS 스타일 */
+        /* profile.png를 마커로 사용할 때 원형, 테두리, 그림자 효과를 줍니다. */
         .leaflet-marker-icon.user-marker {
             border-radius: 50%; /* 마커를 원형으로 */
             border: 3px solid #007bff; /* 파란색 테두리 */
@@ -46,10 +48,12 @@
 </head>
 <body>
     <div id="map"></div>
+    <!-- 프로필 사진을 직접 HTML에 넣는 대신, Leaflet 마커로 다시 사용할 것이므로 이 img 태그는 제거됩니다. -->
+    <!-- <img id="center-marker" src="profile.png" alt="User Location"> -->
     <div class="info-box" id="info">위치 정보 대기 중...</div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <!-- Firebase SDK v9 compat 버전으로 변경 -->
+    <!-- Firebase SDK v9 compat 버전 -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
@@ -68,7 +72,7 @@
 
         // Firebase 초기화
         const app = firebase.initializeApp(firebaseConfig);
-        const database = firebase.database(); // compat 버전에서는 firebase.database()로 접근합니다.
+        const database = firebase.database();
 
         // Leaflet 지도 초기화 (초기 뷰포인트는 세종시 근처로 설정)
         const map = L.map('map', {
@@ -81,15 +85,13 @@
             maxZoom: 19,
         }).addTo(map);
 
-        // 사용자 마커 아이콘 설정
-        // profile.png 파일을 사용하도록 iconUrl을 변경했습니다.
-        // 이 파일이 index.html과 같은 GitHub 리포지토리 루트에 있어야 합니다.
+        // 사용자 마커 아이콘 설정 (profile.png 파일을 다시 사용)
         const userIcon = L.icon({
-            iconUrl: 'profile.png', // <-- 이 부분을 'profile.png'로 변경했습니다.
+            iconUrl: 'profile.png', // <-- profile.png 경로
             iconSize: [48, 48],
             iconAnchor: [24, 48], // 아이콘의 바닥 중앙이 위치를 가리키도록
             popupAnchor: [0, -48],
-            className: 'user-marker' // 커스텀 CSS 클래스 적용
+            className: 'user-marker' // 위에서 정의한 CSS 클래스 적용
         });
 
         let userMarker = null; // 사용자 마커 변수
@@ -104,17 +106,20 @@
                 const timestamp = new Date(data.timestamp).toLocaleString();
 
                 if (userMarker) {
+                    // 마커가 이미 있다면 위치만 업데이트
                     userMarker.setLatLng([lat, lng]);
                 } else {
+                    // 마커가 없다면 새로 생성하여 지도에 추가
                     userMarker = L.marker([lat, lng], { icon: userIcon }).addTo(map);
                 }
-                // 지도 중앙을 마커 위치로 이동 (부드러운 애니메이션 적용)
+                
+                // 지도를 마커 위치로 이동 (마커가 지도 화면의 중앙에 오도록)
                 map.flyTo([lat, lng], map.getZoom(), {
                     duration: 1.5 // 1.5초 동안 부드럽게 이동
                 });
                 infoDiv.innerHTML = `위치 업데이트: ${lat.toFixed(6)}, ${lng.toFixed(6)}<br>마지막 업데이트: ${timestamp}`;
             } else {
-                // 데이터가 없거나 형식이 일치하지 않을 때 표시되는 메시지
+                // 데이터가 없거나 형식이 일치하지 않을 때 메시지 표시 및 마커 제거
                 infoDiv.textContent = "위치 데이터를 찾을 수 없습니다. (휴대폰에서 전송 시작 확인)";
                 if (userMarker) {
                     map.removeLayer(userMarker);
