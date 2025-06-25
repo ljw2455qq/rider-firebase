@@ -81,9 +81,11 @@
             maxZoom: 19,
         }).addTo(map);
 
-        // 사용자 마커 아이콘 설정 (플라티콘 기본 프로필 이미지 사용)
+        // 사용자 마커 아이콘 설정
+        // profile.png 파일을 사용하도록 iconUrl을 변경했습니다.
+        // 이 파일이 index.html과 같은 GitHub 리포지토리 루트에 있어야 합니다.
         const userIcon = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/149/149071.png', // 기본 프로필 이미지 URL
+            iconUrl: 'profile.png', // <-- 이 부분을 'profile.png'로 변경했습니다.
             iconSize: [48, 48],
             iconAnchor: [24, 48], // 아이콘의 바닥 중앙이 위치를 가리키도록
             popupAnchor: [0, -48],
@@ -94,10 +96,8 @@
         const infoDiv = document.getElementById('info');
 
         // Firebase Realtime Database에서 'location' 경로의 위치 데이터를 실시간으로 읽기
-        // gps-uploader.html에서 'location' 경로로 데이터를 보내므로, 여기서도 동일하게 읽어야 합니다.
         database.ref('location').on('value', (snapshot) => {
             const data = snapshot.val();
-            // gps-uploader.html에서 lat, lng 필드로 보내므로, 여기서도 lat, lng로 읽어야 합니다.
             if (data && data.lat !== undefined && data.lng !== undefined) {
                 const lat = data.lat;
                 const lng = data.lng;
