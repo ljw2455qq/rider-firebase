@@ -1,89 +1,129 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>GPS 오버레이</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <style>
-    html, body {
-      margin: 0;
-      background: transparent;
-      color: white;
-      font-family: sans-serif;
-    }
-    #map {
-      height: 300px;
-      width: 100%;
-      z-index: 0;
-    }
-    .info-box {
-      background: rgba(0,0,0,0.6);
-      padding: 10px;
-      font-size: 16px;
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 1000;
-      border-radius: 8px;
-    }
-  </style>
+    <meta charset="utf-8">
+    <title>실시간 GPS 오버레이</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        html, body { 
+            margin: 0; 
+            padding: 0; 
+            height: 100%; 
+            width: 100%; 
+            overflow: hidden; 
+            background: transparent !important; /* 배경 투명하게 */
+        }
+        #map { 
+            height: 100%; 
+            width: 100%; 
+            background: transparent; /* 지도 자체도 투명하게 */
+        }
+        /* OpenStreetMap 타일만 보이도록 Leaflet 기본 UI 숨기기 */
+        .leaflet-control-container,
+        .leaflet-attribution-container {
+            display: none !important;
+        }
+
+        .info-box {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7); /* 반투명 검정 배경 */
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 1000; /* 지도가 위에 오도록 */
+            font-family: sans-serif;
+            font-size: 16px;
+            pointer-events: none; /* 클릭 이벤트 무시, 아래 레이어 클릭 가능하도록 */
+        }
+        .leaflet-marker-icon.user-marker {
+            border-radius: 50%; /* 마커를 원형으로 */
+            border: 3px solid #007bff; /* 파란색 테두리 */
+            box-shadow: 0 0 8px rgba(0, 123, 255, 0.8); /* 빛나는 효과 */
+        }
+    </style>
 </head>
 <body>
-  <div class="info-box" id="info">📍 위치 수신 대기 중...</div>
-  <div id="map"></div>
+    <div id="map"></div>
+    <div class="info-box" id="info">위치 정보 대기 중...</div>
 
-  <!-- Leaflet 지도 라이브러리 -->
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
 
-  <!-- Firebase 모듈 불러오기 -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+    <script>
+        // 사용자님이 제공해주신 Firebase 구성 정보로 업데이트되었습니다.
+        const firebaseConfig = {
+            apiKey: "AIzaSyA5hMmN9QFgdFtaA5gicS_pj-blu_jJdvE",
+            authDomain: "rider-bf48b.firebaseapp.com",
+            databaseURL: "https://rider-bf48b-default-rtdb.firebaseio.com",
+            projectId: "rider-bf48b",
+            storageBucket: "rider-bf48b.firebasestorage.app",
+            messagingSenderId: "1026929653322",
+            appId: "1:1026929653322:web:b90541cccba5b4186198b3",
+            measurementId: "G-Z0H55KJ1W7"
+        };
 
-    // Firebase 설정
-    const firebaseConfig = {
-      apiKey: "AIzaSyA5hMmN9QFgdFtaA5gicS_pj-blu_jJdvE",
-      authDomain: "rider-bf48b.firebaseapp.com",
-      databaseURL: "https://rider-bf48b-default-rtdb.firebaseio.com",
-      projectId: "rider-bf48b",
-      storageBucket: "rider-bf48b.appspot.com",
-      messagingSenderId: "1026929653322",
-      appId: "1:1026929653322:web:b90541cccba5b4186198b3",
-      measurementId: "G-Z0H55KJ1W7"
-    };
+        // Firebase 초기화
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+        // Leaflet 지도 초기화 (초기 뷰포인트는 세종시 근처로 설정)
+        const map = L.map('map', {
+            zoomControl: false, // 줌 컨트롤 숨기기
+            attributionControl: false // 저작권 정보 숨기기
+        }).setView([36.47840, 127.28836], 16); // 요청하신 세종시 근처 좌표
 
-    const infoBox = document.getElementById("info");
+        // OpenStreetMap 타일 레이어 추가
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            // OBS 오버레이 시 배경이 투명해야 하므로, 여기에 불필요한 attribution은 추가하지 않습니다.
+            // attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
 
-    // Leaflet 지도 초기화
-    const map = L.map('map').setView([37.5665, 126.9780], 14); // 서울 초기 위치
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+        // 사용자 마커 아이콘 설정 (플라티콘 기본 프로필 이미지 사용)
+        const userIcon = L.icon({
+            iconUrl: 'https://cdn-icons-png.flaticon.com/512/149/149071.png', // 기본 프로필 이미지 URL
+            iconSize: [48, 48],
+            iconAnchor: [24, 48], // 아이콘의 바닥 중앙이 위치를 가리키도록
+            popupAnchor: [0, -48],
+            className: 'user-marker' // 커스텀 CSS 클래스 적용
+        });
 
-    let marker;
+        let userMarker = null; // 사용자 마커 변수
+        const infoDiv = document.getElementById('info');
 
-    // Firebase에서 실시간 위치 수신
-    const locationRef = ref(db, "location");
-    onValue(locationRef, (snapshot) => {
-      const data = snapshot.val();
-      if (!data) return;
+        // Firebase Realtime Database에서 위치 데이터 실시간으로 읽기
+        database.ref('locations/user1').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data && data.latitude !== undefined && data.longitude !== undefined) {
+                const lat = data.latitude;
+                const lng = data.longitude;
+                const timestamp = new Date(data.timestamp).toLocaleString();
 
-      const { latitude, longitude, timestamp } = data;
-      const time = new Date(timestamp).toLocaleTimeString();
+                if (userMarker) {
+                    userMarker.setLatLng([lat, lng]);
+                } else {
+                    userMarker = L.marker([lat, lng], { icon: userIcon }).addTo(map);
+                }
+                // 지도 중앙을 마커 위치로 이동 (부드러운 애니메이션 적용)
+                map.flyTo([lat, lng], map.getZoom(), {
+                    duration: 1.5 // 1.5초 동안 부드럽게 이동
+                });
+                infoDiv.innerHTML = `위치 업데이트: ${lat.toFixed(6)}, ${lng.toFixed(6)}<br>마지막 업데이트: ${timestamp}`;
+            } else {
+                infoDiv.textContent = "위치 데이터를 찾을 수 없습니다. (휴대폰에서 전송 시작 확인)";
+                if (userMarker) {
+                    map.removeLayer(userMarker);
+                    userMarker = null;
+                }
+            }
+        }, (error) => {
+            infoDiv.textContent = `데이터 읽기 오류: ${error.message}`;
+            console.error("Firebase read failed:", error);
+        });
 
-      // 마커 갱신
-      if (marker) {
-        marker.setLatLng([latitude, longitude]);
-      } else {
-        marker = L.marker([latitude, longitude]).addTo(map);
-      }
-
-      map.setView([latitude, longitude], 15);
-      infoBox.innerText = `📍 위도: ${latitude.toFixed(5)}, 경도: ${longitude.toFixed(5)}\n🕒 ${time}`;
-    });
-  </script>
+    </script>
 </body>
 </html>
