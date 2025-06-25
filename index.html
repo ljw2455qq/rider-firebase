@@ -16,8 +16,9 @@
         #map {
             height: 100%;
             width: 100%;
-            /* 지도가 로드되지 않으면 이 색이 보입니다. 디버깅 후에는 transparent로 되돌리세요. */
-            background: transparent !important; 
+            /* 지도가 아예 안 보일 때 디버깅용으로 임시 배경색을 강제합니다. */
+            /* 정상 작동 시 'background: transparent !important;' 로 다시 변경해야 합니다. */
+            background: #222 !important; 
         }
         /* OpenStreetMap 타일만 보이도록 Leaflet 기본 UI 숨기기 */
         .leaflet-control-container,
@@ -29,7 +30,7 @@
             position: absolute;
             bottom: 10px;
             left: 10px;
-            background: rgba(0,0,0,0.8); /* 반투명 검정 배경 */
+            background: rgba(0,0,0,0.9); /* 더 진한 배경으로 시인성 높임 */
             color: white;
             padding: 10px;
             border-radius: 5px;
@@ -39,19 +40,17 @@
             pointer-events: none;
             width: fit-content;
             white-space: nowrap;
-            box-shadow: 0 0 10px rgba(0,255,255,0.5); /* 디버깅 효과 */
+            box-shadow: 0 0 12px rgba(255,0,0,0.7); /* 오류 진단을 위해 빨간색 빛 효과 추가 */
         }
-        /* Leaflet 마커 아이콘에 적용될 CSS 스타일 */
         .leaflet-marker-icon.user-marker {
-            border-radius: 50%; /* 마커를 원형으로 */
-            border: 3px solid #007bff; /* 파란색 테두리 */
-            box-shadow: 0 0 8px rgba(0, 123, 255, 0.8); /* 빛나는 효과 */
+            border-radius: 50%;
+            border: 3px solid #007bff;
+            box-shadow: 0 0 8px rgba(0, 123, 255, 0.8);
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <!-- 이전의 <img id="center-marker"> 태그는 제거됩니다. -->
     <div class="info-box" id="info">지도 초기화 중...</div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -70,42 +69,54 @@
             measurementId: "G-Z0H55KJ1W7"
         };
 
+        const infoDiv = document.getElementById('info'); // infoDiv를 전역적으로 접근 가능하도록 초기화
+
+        function updateInfo(message) {
+            infoDiv.innerHTML = message;
+            console.log("Info Update:", message); // 모든 infoDiv 업데이트를 콘솔에 로그
+        }
+
+        updateInfo("스크립트 로드 시작..."); // 스크립트 로드 시작 시점
+
         try {
+            // Firebase 초기화 시도
             const app = firebase.initializeApp(firebaseConfig);
             const database = firebase.database();
-            console.log("Firebase initialized successfully.");
-            infoDiv.textContent = "Firebase 연결됨. 위치 데이터 대기 중...";
+            console.log("Firebase 앱 초기화 성공.");
+            updateInfo("Firebase 앱 초기화 성공. 지도 및 데이터 로드 중...");
 
-            // 지도 초기화 (초기 뷰포인트는 세종시 근처로 설정)
+            // Leaflet 지도 초기화 시도
             const map = L.map('map', {
                 zoomControl: false,
                 attributionControl: false
             }).setView([36.47840, 127.28836], 16); // 세종시 근처 초기 좌표
-            console.log("Leaflet map initialized.");
+            console.log("Leaflet 지도 초기화 성공.");
+            updateInfo("지도 초기화 성공. 타일 로드 중...");
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
             }).addTo(map);
-            console.log("Map tiles loaded.");
+            console.log("지도 타일 로드 요청됨.");
+            updateInfo("지도 타일 로드됨. 위치 데이터 대기 중...");
+
 
             // 사용자 마커 아이콘 설정 (profile.png 파일을 사용)
             const userIcon = L.icon({
                 iconUrl: 'profile.png',
-                iconRetinaUrl: 'profile.png', // 레티나 디스플레이용
+                iconRetinaUrl: 'profile.png',
                 iconSize: [48, 48],
-                iconAnchor: [24, 48], // 아이콘의 바닥 중앙이 GPS 위치에 오도록
+                iconAnchor: [24, 48],
                 popupAnchor: [0, -48],
                 className: 'user-marker'
             });
-            console.log("User icon configured.");
+            console.log("사용자 아이콘 설정 완료.");
 
             let userMarker = null;
-            const infoDiv = document.getElementById('info');
 
             // Firebase Realtime Database에서 'location' 경로의 위치 데이터 실시간 읽기
             database.ref('location').on('value', (snapshot) => {
                 const data = snapshot.val();
-                console.log("Firebase data received:", data);
+                console.log("Firebase 데이터 수신:", data); // Firebase에서 수신한 데이터 로그
 
                 if (data && data.lat !== undefined && data.lng !== undefined) {
                     const lat = data.lat;
@@ -113,37 +124,34 @@
                     const timestamp = new Date(data.timestamp).toLocaleString();
 
                     if (userMarker) {
-                        // 마커가 이미 있다면 위치만 업데이트
                         userMarker.setLatLng([lat, lng]);
-                        console.log("Marker position updated to:", lat, lng);
+                        console.log("마커 위치 업데이트:", lat, lng);
                     } else {
-                        // 마커가 없다면 새로 생성하여 지도에 추가
                         userMarker = L.marker([lat, lng], { icon: userIcon }).addTo(map);
-                        console.log("Marker created at:", lat, lng);
+                        console.log("마커 생성됨:", lat, lng);
                     }
                     
-                    // 지도를 마커 위치로 이동 (마커가 지도 화면의 중앙에 오도록)
                     map.flyTo([lat, lng], map.getZoom(), {
-                        duration: 1.5 // 1.5초 동안 부드럽게 이동
+                        duration: 1.5
                     });
-                    infoDiv.innerHTML = `위치 업데이트: ${lat.toFixed(6)}, ${lng.toFixed(6)}<br>마지막 업데이트: ${timestamp}`;
+                    updateInfo(`위치 업데이트: ${lat.toFixed(6)}, ${lng.toFixed(6)}<br>마지막 업데이트: ${timestamp}`);
                 } else {
-                    infoDiv.textContent = "위치 데이터 형식이 올바르지 않거나 데이터가 없습니다. (휴대폰에서 전송 시작 확인)";
-                    console.warn("No valid location data received from Firebase or data format incorrect.");
+                    updateInfo("위치 데이터 형식이 올바르지 않거나 데이터가 없습니다.<br>휴대폰에서 전송 시작 확인!");
+                    console.warn("유효한 위치 데이터를 Firebase에서 수신하지 못했거나 데이터 형식이 올바르지 않습니다.");
                     if (userMarker) {
-                        map.removeLayer(userMarker); // 유효하지 않은 데이터 시 마커 제거
+                        map.removeLayer(userMarker);
                         userMarker = null;
-                        console.log("Existing marker removed due to invalid data.");
+                        console.log("유효하지 않은 데이터로 인해 기존 마커 제거됨.");
                     }
                 }
             }, (error) => {
-                infoDiv.textContent = `Firebase 데이터 읽기 오류: ${error.message}`;
-                console.error("Firebase read failed:", error);
+                updateInfo(`Firebase 데이터 읽기 오류: ${error.message}<br>콘솔 확인 필수!`);
+                console.error("Firebase 데이터 읽기 실패:", error);
             });
 
         } catch (initError) {
-            infoDiv.textContent = `초기화 오류: ${initError.message}`;
-            console.error("Application initialization failed:", initError);
+            updateInfo(`애플리케이션 초기화 오류: ${initError.message}<br>콘솔 확인 필수!`);
+            console.error("애플리케이션 초기화 실패:", initError);
         }
     </script>
 </body>
