@@ -1,99 +1,74 @@
+<!-- gps-uploader.html -->
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>GPS 실시간 오버레이</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: transparent;
-      font-family: sans-serif;
-      color: white;
-    }
-    #map {
-      height: 300px;
-      width: 100%;
-    }
-    .info-box {
-      background: rgba(0,0,0,0.6);
-      padding: 10px;
-      font-size: 18px;
-      line-height: 1.6;
-    }
-  </style>
+  <meta charset="UTF-8">
+  <title>GPS 업로드</title>
 </head>
 <body>
+  <h3>GPS 전송 중...</h3>
+  <div id="status">위치 대기 중</div>
 
-  <div id="map"></div>
-  <div class="info-box" id="info">GPS 대기 중...</div>
+  <!-- Firebase SDK v9 compat 버전 -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script>
-    let map = L.map('map').setView([35.1291, 126.8540], 17);
-    let marker = L.marker([35.1291, 126.8540]).addTo(map);
-    let totalDistance = 0;
-    let prevLat = null, prevLng = null;
-    const payPerKm = 800;
+  <script>
+    // 사용자님이 제공해주신 Firebase 구성 정보로 업데이트되었습니다.
+    const firebaseConfig = {
+      apiKey: "AIzaSyA5hMmN9QFgdFtaA5gicS_pj-blu_jJdvE",
+      authDomain: "rider-bf48b.firebaseapp.com",
+      databaseURL: "https://rider-bf48b-default-rtdb.firebaseio.com",
+      projectId: "rider-bf48b",
+      storageBucket: "rider-bf48b.firebasestorage.app",
+      messagingSenderId: "1026929653322",
+      appId: "1:1026929653322:web:b90541cccba5b4186198b3",
+      measurementId: "G-Z0H55KJ1W7" // measurementId는 Firebase Analytics용이지만, 여기에 포함되어도 무방합니다.
+    };
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-    }).addTo(map);
+    // Firebase 초기화
+    const app = firebase.initializeApp(firebaseConfig);
+    // getAnalytics(app); // 분석 기능이 필요 없다면 이 줄은 제거해도 됩니다. (그리고 firebase-analytics.js도 로드되지 않으므로 오류 방지)
+    
+    const db = firebase.database(); // compat 버전에서는 firebase.database()로 접근합니다.
 
-    function deg2rad(deg) {
-      return deg * (Math.PI / 180);
-    }
+    function sendLocation(lat, lng) {
+      db.ref('location').set({ lat, lng, timestamp: Date.now() })
+        .then(() => {
+            document.getElementById('status').innerText = `위치 전송됨: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            console.log("위치 전송 성공:", { lat, lng });
+        })
+        .catch(error => {
+            document.getElementById('status').innerText = `위치 전송 실패: ${error.message}`;
+            console.error("Firebase 쓰기 실패:", error);
+        });
+    }
 
-    function getDistanceFromLatLon(lat1, lon1, lat2, lon2) {
-      const R = 6371; // 지구 반지름 (km)
-      const dLat = deg2rad(lat2 - lat1);
-      const dLon = deg2rad(lon2 - lon1);
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c; // 거리 (km)
-    }
-
-    function updateInfo() {
-      const km = totalDistance.toFixed(2);
-      const income = Math.floor(totalDistance * payPerKm);
-      document.getElementById('info').innerHTML = `
-        이동 거리: <b>${km} km</b><br>
-        예상 수익: <b>${income.toLocaleString()} 원</b>
-      `;
-    }
-
-    if (navigator.geolocation) {
-      navigator.geolocation.watchPosition(pos => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-
-        marker.setLatLng([lat, lng]);
-        map.setView([lat, lng]);
-
-        if (prevLat !== null && prevLng !== null) {
-          const d = getDistanceFromLatLon(prevLat, prevLng, lat, lng);
-          if (d < 1) totalDistance += d; // 급격한 거리 증가 방지
-        }
-
-        prevLat = lat;
-        prevLng = lng;
-
-        updateInfo();
-      }, err => {
-        document.getElementById('info').innerText = 'GPS 오류: ' + err.message;
-      }, {
-        enableHighAccuracy: true,
-        maximumAge: 2000,
-        timeout: 10000
-      });
-    } else {
-      document.getElementById('info').innerText = 'GPS를 지원하지 않습니다.';
-    }
-  </script>
+    if (navigator.geolocation) {
+      document.getElementById('status').innerText = '위치 정보 요청 중...';
+      navigator.geolocation.watchPosition(pos => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        sendLocation(lat, lng);
+      }, err => {
+        let errorMessage = 'GPS 오류: ' + err.message;
+        if (err.code === err.PERMISSION_DENIED) {
+          errorMessage = '위치 정보 권한이 거부되었습니다. 휴대폰 설정에서 허용해주세요.';
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          errorMessage = '위치 정보를 사용할 수 없습니다. GPS 신호가 약하거나 꺼져있을 수 있습니다.';
+        } else if (err.code === err.TIMEOUT) {
+          errorMessage = '위치 정보 요청 시간이 초과되었습니다. 다시 시도하거나 GPS 상태를 확인해주세요.';
+        }
+        document.getElementById('status').innerText = errorMessage;
+        console.error("Geolocation 에러:", err);
+      }, {
+        enableHighAccuracy: true,
+        maximumAge: 2000,
+        timeout: 10000
+      });
+    } else {
+      document.getElementById('status').innerText = '이 브라우저는 GPS를 지원하지 않습니다.';
+    }
+  </script>
 </body>
 </html>
