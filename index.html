@@ -5,53 +5,85 @@
   <title>GPS 오버레이</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    html, body { margin: 0; background: transparent; }
-    #map { height: 100vh; }
-    .leaflet-marker-icon.circle-icon {
-      border-radius: 50%;
-      border: 2px solid white;
+    html, body {
+      margin: 0;
+      background: transparent;
+      color: white;
+      font-family: sans-serif;
+    }
+    #map {
+      height: 300px;
+      width: 100%;
+      z-index: 0;
+    }
+    .info-box {
+      background: rgba(0,0,0,0.6);
+      padding: 10px;
+      font-size: 16px;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      border-radius: 8px;
     }
   </style>
 </head>
 <body>
+  <div class="info-box" id="info">📍 위치 수신 대기 중...</div>
   <div id="map"></div>
+
+  <!-- Leaflet 지도 라이브러리 -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-  <script>
+
+  <!-- Firebase 모듈 불러오기 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+
+    // Firebase 설정
     const firebaseConfig = {
-  apiKey: "AIzaSyA5hMmN9QFgdFtaA5gicS_pj-blu_jJdvE",
-  authDomain: "rider-bf48b.firebaseapp.com",
-  databaseURL: "https://rider-bf48b-default-rtdb.firebaseio.com",
-  projectId: "rider-bf48b",
-  storageBucket: "rider-bf48b.firebasestorage.app",
-  messagingSenderId: "1026929653322",
-  appId: "1:1026929653322:web:b90541cccba5b4186198b3",
-  measurementId: "G-Z0H55KJ1W7"
-};
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+      apiKey: "AIzaSyA5hMmN9QFgdFtaA5gicS_pj-blu_jJdvE",
+      authDomain: "rider-bf48b.firebaseapp.com",
+      databaseURL: "https://rider-bf48b-default-rtdb.firebaseio.com",
+      projectId: "rider-bf48b",
+      storageBucket: "rider-bf48b.appspot.com",
+      messagingSenderId: "1026929653322",
+      appId: "1:1026929653322:web:b90541cccba5b4186198b3",
+      measurementId: "G-Z0H55KJ1W7"
+    };
 
-    const map = L.map('map').setView([35.1291, 126.8540], 17);
-    const icon = L.icon({
-      iconUrl: 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
-      iconSize: [48, 48],
-      iconAnchor: [24, 24],
-      className: 'circle-icon'
-    });
-    const marker = L.marker([0, 0], { icon }).addTo(map);
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-    db.ref('location').on('value', snapshot => {
-      const data = snapshot.val();
-      if (data) {
-        marker.setLatLng([data.lat, data.lng]);
-        map.setView([data.lat, data.lng]);
-      }
-    });
+    const infoBox = document.getElementById("info");
 
+    // Leaflet 지도 초기화
+    const map = L.map('map').setView([37.5665, 126.9780], 14); // 서울 초기 위치
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19
+      attribution: '© OpenStreetMap contributors'
     }).addTo(map);
+
+    let marker;
+
+    // Firebase에서 실시간 위치 수신
+    const locationRef = ref(db, "location");
+    onValue(locationRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return;
+
+      const { latitude, longitude, timestamp } = data;
+      const time = new Date(timestamp).toLocaleTimeString();
+
+      // 마커 갱신
+      if (marker) {
+        marker.setLatLng([latitude, longitude]);
+      } else {
+        marker = L.marker([latitude, longitude]).addTo(map);
+      }
+
+      map.setView([latitude, longitude], 15);
+      infoBox.innerText = `📍 위도: ${latitude.toFixed(5)}, 경도: ${longitude.toFixed(5)}\n🕒 ${time}`;
+    });
   </script>
 </body>
 </html>
