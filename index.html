@@ -16,49 +16,13 @@
         #map {
             height: 100%;
             width: 100%;
-            background: transparent !important;
-            position: relative; /* 십자선을 위한 상대 위치 */
+            background: transparent !important; /* 지도 자체도 투명하게 설정 */
         }
         /* OpenStreetMap 타일만 보이도록 Leaflet 기본 UI 숨기기 */
         .leaflet-control-container,
         .leaflet-attribution-container {
             display: none !important;
         }
-
-        /* 화면 중앙에 고정될 십자선 스타일 (디버깅용) */
-        #center-crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%); /* 정확히 중앙 정렬 */
-            width: 20px; /* 십자선 크기 */
-            height: 20px; /* 십자선 크기 */
-            border: 1px dashed red; /* 빨간색 점선 테두리 */
-            border-radius: 50%; /* 원형으로 */
-            z-index: 1002; /* 마커보다 위에 오도록 */
-            pointer-events: none; /* 클릭 이벤트 무시 */
-        }
-        #center-crosshair::before,
-        #center-crosshair::after {
-            content: '';
-            position: absolute;
-            background: red; /* 십자선 색상 */
-        }
-        #center-crosshair::before { /* 가로선 */
-            width: 100%;
-            height: 2px;
-            top: 50%;
-            left: 0;
-            transform: translateY(-50%);
-        }
-        #center-crosshair::after { /* 세로선 */
-            width: 2px;
-            height: 100%;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-        }
-
 
         .info-box {
             position: absolute;
@@ -74,7 +38,6 @@
             pointer-events: none;
             width: fit-content;
             white-space: nowrap;
-            box-shadow: 0 0 12px rgba(255,0,0,0.7); /* 디버깅 효과 */
         }
         /* Leaflet 마커 아이콘에 적용될 CSS 스타일 */
         .leaflet-marker-icon.user-marker {
@@ -86,8 +49,6 @@
 </head>
 <body>
     <div id="map"></div>
-    <!-- 화면 중앙에 고정될 십자선 (디버깅용) -->
-    <div id="center-crosshair"></div>
     <div class="info-box" id="info">지도 초기화 중...</div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -106,23 +67,21 @@
             measurementId: "G-Z0H55KJ1W7"
         };
 
-        const infoDiv = document.getElementById('info'); // infoDiv를 전역적으로 접근 가능하도록 초기화
+        const infoDiv = document.getElementById('info');
 
         function updateInfo(message) {
             infoDiv.innerHTML = message;
-            console.log("Info Update:", message); // 모든 infoDiv 업데이트를 콘솔에 로그
+            console.log("Info Update:", message);
         }
 
-        updateInfo("스크립트 로드 시작..."); // 스크립트 로드 시작 시점
+        updateInfo("스크립트 로드 시작...");
 
         try {
-            // Firebase 초기화 시도
             const app = firebase.initializeApp(firebaseConfig);
             const database = firebase.database();
             console.log("Firebase 앱 초기화 성공.");
             updateInfo("Firebase 앱 초기화 성공. 지도 및 데이터 로드 중...");
 
-            // Leaflet 지도 초기화 시도
             const map = L.map('map', {
                 zoomControl: false,
                 attributionControl: false
@@ -136,24 +95,21 @@
             console.log("지도 타일 로드 요청됨.");
             updateInfo("지도 타일 로드됨. 위치 데이터 대기 중...");
 
-
-            // 사용자 마커 아이콘 설정 (profile.png 파일을 사용)
             const userIcon = L.icon({
                 iconUrl: 'profile.png',
                 iconRetinaUrl: 'profile.png',
                 iconSize: [48, 48],
-                iconAnchor: [24, 24], // <-- 아이콘의 정중앙이 GPS 좌표에 오도록 변경 (48/2)
-                popupAnchor: [0, -24], // 팝업이 있다면 아이콘 중앙 위쪽에 표시되도록 조정
+                iconAnchor: [24, 24], // 아이콘의 정중앙이 GPS 좌표에 오도록 설정
+                popupAnchor: [0, -24],
                 className: 'user-marker'
             });
             console.log("사용자 아이콘 설정 완료.");
 
             let userMarker = null;
 
-            // Firebase Realtime Database에서 'location' 경로의 위치 데이터 실시간 읽기
             database.ref('location').on('value', (snapshot) => {
                 const data = snapshot.val();
-                console.log("Firebase 데이터 수신:", data); // Firebase에서 수신한 데이터 로그
+                console.log("Firebase 데이터 수신:", data);
 
                 if (data && data.lat !== undefined && data.lng !== undefined) {
                     const lat = data.lat;
@@ -177,7 +133,7 @@
                     updateInfo("위치 데이터 형식이 올바르지 않거나 데이터가 없습니다.<br>휴대폰에서 전송 시작 확인!");
                     console.warn("유효한 위치 데이터를 Firebase에서 수신하지 못했거나 데이터 형식이 올바르지 않습니다.");
                     if (userMarker) {
-                        map.removeLayer(userMarker); // 유효하지 않은 데이터 시 마커 제거
+                        map.removeLayer(userMarker);
                         userMarker = null;
                         console.log("유효하지 않은 데이터로 인해 기존 마커 제거됨.");
                     }
