@@ -61,8 +61,8 @@
 
   /* 내 위치 마커 */
   .profile-marker {
-    width: 30px;
-    height: 30px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     background-image: url("profile.png");
     background-size: cover;
@@ -79,8 +79,8 @@
     position: absolute;
     left: 50%;
     top: 50%;
-    width: 42px;
-    height: 42px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     border: 2px solid rgba(0,255,255,.38);
     transform: translate(-50%, -50%);
@@ -146,8 +146,8 @@ L.tileLayer('https://' + '{s}' + '.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 const markerIcon = L.divIcon({
   className: '',
   html: '<div class="profile-marker"></div>',
-  iconSize: [30, 30],
-  iconAnchor: [15, 15]
+  iconSize: [22, 22],
+  iconAnchor: [11, 11]
 });
 
 const marker = L.marker(toLeaflet(currentPos), { icon: markerIcon }).addTo(map);
