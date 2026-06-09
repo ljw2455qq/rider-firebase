@@ -59,40 +59,6 @@
     z-index: 500;
   }
 
-  /* 상단 LIVE GPS 배지 */
-  #gpsBadge {
-    position: absolute;
-    left: 12px;
-    top: 10px;
-    z-index: 600;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 9px;
-    border-radius: 999px;
-    background: rgba(0,0,0,.38);
-    color: #eaffff;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: .5px;
-    text-shadow: 0 0 6px rgba(0,255,255,.8);
-    backdrop-filter: blur(4px);
-  }
-
-  #gpsBadge .dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #00fff0;
-    box-shadow: 0 0 8px #00fff0;
-    animation: pulse 1.2s infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: .45; transform: scale(.72); }
-  }
-
   /* 내 위치 마커 */
   .profile-marker {
     width: 30px;
@@ -136,7 +102,6 @@
 <body>
 <div id="mapWrap">
   <div id="map"></div>
-  <div id="gpsBadge"><span class="dot"></span>LIVE GPS</div>
 </div>
 
 <script>
