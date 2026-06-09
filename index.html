@@ -1,152 +1,247 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
-    <meta charset="utf-8">
-    <title>실시간 GPS 오버레이</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <style>
-        html, body {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            width: 100%;
-            overflow: hidden;
-            background: transparent !important; /* 배경을 투명하게 설정 */
-        }
-        #map {
-            height: 100%;
-            width: 100%;
-            background: transparent !important; /* 지도 자체도 투명하게 설정 */
-        }
-        /* OpenStreetMap 타일만 보이도록 Leaflet 기본 UI 숨기기 */
-        .leaflet-control-container,
-        .leaflet-attribution-container {
-            display: none !important;
-        }
+<meta charset="utf-8" />
+<title>OpenStreetMap GPS Overlay</title>
 
-        .info-box {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.8); /* 반투명 검정 배경 */
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            z-index: 1000;
-            font-family: sans-serif;
-            font-size: 16px;
-            pointer-events: none;
-            width: fit-content;
-            white-space: nowrap;
-        }
-        /* Leaflet 마커 아이콘에 적용될 CSS 스타일 */
-        .leaflet-marker-icon.user-marker {
-            border-radius: 50%; /* 마커를 원형으로 */
-            border: 3px solid #007bff; /* 파란색 테두리 */
-            box-shadow: 0 0 8px rgba(0, 123, 255, 0.8); /* 빛나는 효과 */
-        }
-    </style>
+<!-- Leaflet: 오픈소스 지도 라이브러리 -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- RTIRL -->
+<script src="https://cdn.jsdelivr.net/npm/@rtirl/api@latest/lib/index.min.js"></script>
+
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    overflow: hidden;
+    font-family: 'Noto Sans KR', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  /* 전체 지도 프레임 */
+  #mapWrap {
+    position: relative;
+    width: 300px;
+    height: 250px;
+    border-radius: 18px;
+    padding: 3px;
+    background: linear-gradient(135deg, rgba(0,255,255,.95), rgba(0,90,255,.55), rgba(0,255,180,.75));
+    box-shadow:
+      0 0 18px rgba(0,255,255,.75),
+      0 0 34px rgba(0,140,255,.35);
+    overflow: hidden;
+  }
+
+  #map {
+    width: 100%;
+    height: 100%;
+    border-radius: 15px;
+    overflow: hidden;
+    background: rgba(0,0,0,.2);
+  }
+
+  /* 어두운 방송용 톤 */
+  .leaflet-tile {
+    filter: saturate(1.15) contrast(1.08) brightness(.82);
+  }
+
+  /* 지도 위 글로우/비네팅 */
+  #mapWrap::after {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border-radius: 15px;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 50% 45%, rgba(0,255,255,.03), transparent 48%),
+      linear-gradient(to bottom, rgba(0,0,0,.02), rgba(0,0,0,.24));
+    box-shadow: inset 0 0 22px rgba(0,0,0,.45);
+    z-index: 500;
+  }
+
+  /* 상단 LIVE GPS 배지 */
+  #gpsBadge {
+    position: absolute;
+    left: 12px;
+    top: 10px;
+    z-index: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: rgba(0,0,0,.58);
+    color: #eaffff;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    text-shadow: 0 0 6px rgba(0,255,255,.8);
+    backdrop-filter: blur(4px);
+  }
+
+  #gpsBadge .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #00fff0;
+    box-shadow: 0 0 8px #00fff0;
+    animation: pulse 1.2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: .45; transform: scale(.72); }
+  }
+
+  /* 내 위치 마커 */
+  .profile-marker {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background-image: url("profile.png");
+    background-size: cover;
+    background-position: center;
+    border: 2px solid #fff;
+    box-shadow:
+      0 0 0 4px rgba(0,255,255,.20),
+      0 0 14px rgba(0,255,255,.95),
+      0 0 28px rgba(0,160,255,.55);
+  }
+
+  .profile-marker::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 2px solid rgba(0,255,255,.38);
+    transform: translate(-50%, -50%);
+    animation: markerRing 1.7s infinite;
+  }
+
+  @keyframes markerRing {
+    0% { transform: translate(-50%, -50%) scale(.65); opacity: .9; }
+    100% { transform: translate(-50%, -50%) scale(1.35); opacity: 0; }
+  }
+
+  /* Leaflet 기본 UI 제거 */
+  .leaflet-control-container {
+    display: none !important;
+  }
+</style>
 </head>
+
 <body>
-    <div id="map"></div>
-    <div class="info-box" id="info">지도 초기화 중...</div>
+<div id="mapWrap">
+  <div id="map"></div>
+  <div id="gpsBadge"><span class="dot"></span>LIVE GPS</div>
+</div>
 
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script>
+/* =============================
+   기본 설정
+============================= */
+const PULL_KEY = "zeoeyze9htbyx455";
 
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyA5hMmN9QFgdFtaA5gicS_pj-blu_jJdvE",
-            authDomain: "rider-bf48b.firebaseapp.com",
-            databaseURL: "https://rider-bf48b-default-rtdb.firebaseio.com",
-            projectId: "rider-bf48b",
-            storageBucket: "rider-bf48b.firebasestorage.app",
-            messagingSenderId: "1026929653322",
-            appId: "1:1026929653322:web:b90541cccba5b4186198b3",
-            measurementId: "G-Z0H55KJ1W7"
-        };
+/* 세종시 초기 좌표: [경도, 위도] */
+let currentPos = [127.289, 36.48];
+let animating = false;
+let pendingPos = null;
 
-        const infoDiv = document.getElementById('info');
+function toLeaflet(pos) {
+  return [pos[1], pos[0]]; // Leaflet은 [위도, 경도]
+}
 
-        function updateInfo(message) {
-            infoDiv.innerHTML = message;
-            console.log("Info Update:", message);
-        }
+/* =============================
+   지도 생성: Leaflet + OpenStreetMap
+============================= */
+const map = L.map('map', {
+  zoomControl: false,
+  attributionControl: false,
+  dragging: false,
+  scrollWheelZoom: false,
+  doubleClickZoom: false,
+  boxZoom: false,
+  keyboard: false,
+  tap: false,
+  touchZoom: false
+}).setView(toLeaflet(currentPos), 15);
 
-        updateInfo("스크립트 로드 시작...");
+/* 오픈소스 지도 타일: OpenStreetMap */
+L.tileLayer('https://' + '{s}' + '.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  crossOrigin: true
+}).addTo(map);
 
-        try {
-            const app = firebase.initializeApp(firebaseConfig);
-            const database = firebase.database();
-            console.log("Firebase 앱 초기화 성공.");
-            updateInfo("Firebase 앱 초기화 성공. 지도 및 데이터 로드 중...");
+/* =============================
+   마커 생성
+============================= */
+const markerIcon = L.divIcon({
+  className: '',
+  html: '<div class="profile-marker"></div>',
+  iconSize: [30, 30],
+  iconAnchor: [15, 15]
+});
 
-            const map = L.map('map', {
-                zoomControl: false,
-                attributionControl: false
-            }).setView([36.47840, 127.28836], 16); // 세종시 근처 초기 좌표
-            console.log("Leaflet 지도 초기화 성공.");
-            updateInfo("지도 초기화 성공. 타일 로드 중...");
+const marker = L.marker(toLeaflet(currentPos), { icon: markerIcon }).addTo(map);
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-            }).addTo(map);
-            console.log("지도 타일 로드 요청됨.");
-            updateInfo("지도 타일 로드됨. 위치 데이터 대기 중...");
+/* =============================
+   프랭크 스타일 부드러운 이동
+============================= */
+function smoothMove(from, to, duration = 1200) {
+  if (animating) {
+    pendingPos = to;
+    return;
+  }
+  animating = true;
 
-            const userIcon = L.icon({
-                iconUrl: 'profile.png',
-                iconRetinaUrl: 'profile.png',
-                iconSize: [48, 48],
-                iconAnchor: [24, 24], // 아이콘의 정중앙이 GPS 좌표에 오도록 설정
-                popupAnchor: [0, -24],
-                className: 'user-marker'
-            });
-            console.log("사용자 아이콘 설정 완료.");
+  const start = performance.now();
 
-            let userMarker = null;
+  function animate(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - t, 3);
 
-            database.ref('location').on('value', (snapshot) => {
-                const data = snapshot.val();
-                console.log("Firebase 데이터 수신:", data);
+    const lng = from[0] + (to[0] - from[0]) * ease;
+    const lat = from[1] + (to[1] - from[1]) * ease;
+    const next = [lng, lat];
 
-                if (data && data.lat !== undefined && data.lng !== undefined) {
-                    const lat = data.lat;
-                    const lng = data.lng;
-                    const timestamp = new Date(data.timestamp).toLocaleString();
+    marker.setLatLng(toLeaflet(next));
+    map.panTo(toLeaflet(next), { animate: false });
 
-                    if (userMarker) {
-                        userMarker.setLatLng([lat, lng]);
-                        console.log("마커 위치 업데이트:", lat, lng);
-                    } else {
-                        userMarker = L.marker([lat, lng], { icon: userIcon }).addTo(map);
-                        console.log("마커 생성됨:", lat, lng);
-                    }
-                    
-                    // 지도를 마커 위치로 이동 (마커가 지도 화면의 중앙에 오도록)
-                    map.flyTo([lat, lng], map.getZoom(), {
-                        duration: 1.5 // 1.5초 동안 부드럽게 이동
-                    });
-                    updateInfo(`위치 업데이트: ${lat.toFixed(6)}, ${lng.toFixed(6)}<br>마지막 업데이트: ${timestamp}`);
-                } else {
-                    updateInfo("위치 데이터 형식이 올바르지 않거나 데이터가 없습니다.<br>휴대폰에서 전송 시작 확인!");
-                    console.warn("유효한 위치 데이터를 Firebase에서 수신하지 못했거나 데이터 형식이 올바르지 않습니다.");
-                    if (userMarker) {
-                        map.removeLayer(userMarker);
-                        userMarker = null;
-                        console.log("유효하지 않은 데이터로 인해 기존 마커 제거됨.");
-                    }
-                }
-            }, (error) => {
-                updateInfo(`Firebase 데이터 읽기 오류: ${error.message}<br>콘솔 확인 필수!`);
-                console.error("Firebase 데이터 읽기 실패:", error);
-            });
+    if (t < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      currentPos = to;
+      animating = false;
 
-        } catch (initError) {
-            updateInfo(`애플리케이션 초기화 오류: ${initError.message}<br>콘솔 확인 필수!`);
-            console.error("애플리케이션 초기화 실패:", initError);
-        }
-    </script>
+      if (pendingPos) {
+        const nextPending = pendingPos;
+        pendingPos = null;
+        smoothMove(currentPos, nextPending);
+      }
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+/* =============================
+   RTIRL 실시간 위치 수신
+============================= */
+RealtimeIRL.forPullKey(PULL_KEY).addLocationListener((location) => {
+  if (!location.latitude || !location.longitude) return;
+
+  const nextPos = [
+    location.longitude,
+    location.latitude
+  ];
+
+  smoothMove(currentPos, nextPos);
+});
+</script>
 </body>
 </html>
